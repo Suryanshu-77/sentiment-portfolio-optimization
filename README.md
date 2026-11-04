@@ -103,7 +103,10 @@ sentiment does predict returns, and the full pipeline must find it.
 
 ## Known limitations
 
-- Survivorship bias: the Kaggle dataset covers tickers that existed in 2020.
+- Survivorship bias: the Kaggle dataset covers tickers that existed in 2020, and 25 of the 80
+  best-covered tickers (e.g. VMware, Tiffany, Monsanto) have no price history on yfinance today,
+  so the universe can only contain survivors. Three ETFs (QQQ, SLV, EPS) were excluded so the
+  universe is companies only.
 - The BL prior is equal-weight, not market-cap (free point-in-time market caps are unavailable).
 - About 230 test weeks; Sharpe confidence intervals will be wide.
 - The live tab applies 2010–2020-trained models to current news (distribution shift).

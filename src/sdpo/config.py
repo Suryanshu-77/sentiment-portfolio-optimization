@@ -7,6 +7,9 @@ SEED = 42
 # Universe and dates
 N_UNIVERSE = 30
 UNIVERSE_WINDOW = ("2010-01-01", "2011-12-31")
+# Funds, not companies: the spec's universe is US large-cap stocks. Found among the
+# best-covered Kaggle tickers; extend if a new data pull surfaces others.
+EXCLUDE_TICKERS = frozenset({"QQQ", "SLV", "EPS"})
 PRICE_START = "2010-01-01"
 PRICE_END = "2020-07-01"
 TRAIN_START = "2010-01-01"

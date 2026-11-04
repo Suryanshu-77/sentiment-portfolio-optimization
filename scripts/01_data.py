@@ -32,12 +32,14 @@ def main() -> None:
 
     news = load_kaggle_news(paths)
     window = news["date"].between(*map(pd.Timestamp, config.UNIVERSE_WINDOW))
-    candidates = news.loc[window, "ticker"].value_counts().head(N_CANDIDATES).index.tolist()
+    counts = news.loc[window, "ticker"].value_counts()
+    counts = counts[~counts.index.isin(config.EXCLUDE_TICKERS)]
+    candidates = counts.head(N_CANDIDATES).index.tolist()
     prices = download_prices(candidates, config.PRICE_START, config.PRICE_END)
 
     full_range = (config.PRICE_START, "2020-06-30")
     universe = select_universe(news, prices, config.N_UNIVERSE, config.UNIVERSE_WINDOW,
-                               full_range)
+                               full_range, exclude=config.EXCLUDE_TICKERS)
 
     config.PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
     news[news["ticker"].isin(universe)].to_parquet(config.PROCESSED_DIR / "news.parquet")

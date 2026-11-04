@@ -8,11 +8,13 @@ log = logging.getLogger(__name__)
 
 
 def select_universe(news: pd.DataFrame, prices: pd.DataFrame, n: int,
-                    window: tuple[str, str], full_range: tuple[str, str]) -> list[str]:
+                    window: tuple[str, str], full_range: tuple[str, str],
+                    exclude: set[str] = frozenset()) -> list[str]:
     """Top-`n` tickers by headline count inside `window`, among those with no missing price
     over `full_range`. Ranking uses only the window, so later coverage cannot leak in."""
     in_window = news["date"].between(pd.Timestamp(window[0]), pd.Timestamp(window[1]))
     counts = news.loc[in_window, "ticker"].value_counts()
+    counts = counts[~counts.index.isin(exclude)]
 
     span = prices.loc[full_range[0]:full_range[1]]
     complete = set(span.columns[span.notna().all()])

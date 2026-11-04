@@ -45,3 +45,11 @@ def test_raises_when_too_few_qualify():
     news = _news({"A": [("2010-05-01", 3)]})
     with pytest.raises(ValueError):
         select_universe(news, _prices(["A"]), n=50, window=WINDOW, full_range=FULL)
+
+
+def test_excluded_tickers_are_skipped_and_backfilled():
+    news = _news({"QQQ": [("2010-05-01", 90)], "A": [("2010-05-01", 3)],
+                  "B": [("2010-05-01", 2)]})
+    out = select_universe(news, _prices(["QQQ", "A", "B"]), n=2, window=WINDOW,
+                          full_range=FULL, exclude={"QQQ"})
+    assert out == ["A", "B"]
