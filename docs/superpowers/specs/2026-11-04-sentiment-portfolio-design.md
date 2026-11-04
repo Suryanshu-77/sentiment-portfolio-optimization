@@ -112,7 +112,8 @@ All strategies: long-only, fully invested, max 10% per stock, weekly rebalance a
   trailing 26 weeks). For the first 26 test weeks, Ω uses validation-year errors.
   Posterior μ_BL = [(τΣ)⁻¹ + PᵀΩ⁻¹P]⁻¹[(τΣ)⁻¹π + PᵀΩ⁻¹Q], then max-Sharpe with constraints.
 
-**Strategy C**
+**Strategy C** (optional, built last: the project is complete without it. Every other strategy,
+the dashboard, and the tests must work whether or not C exists.)
 - Shared per-ticker LSTM encoder (same shape as A) → scalar score per ticker → softmax across
   tickers → weights. The 10% cap is applied after the softmax (clip and renormalize) at inference.
 - Training loss on overlapping 52-week chunks (stride 4 weeks, shuffled each epoch):
@@ -138,7 +139,7 @@ All strategies: long-only, fully invested, max 10% per stock, weekly rebalance a
 2. **Sentiment explorer:** per-ticker weekly sentiment vs price, plus top-scored headlines.
 3. **NLP comparison:** metrics table and confusion matrices.
 4. **Live portfolio:** Finnhub news for the last 4 weeks → best NLP model → features with recent
-   yfinance prices → latest A and C models → suggested weights. Cached for one hour. Banner:
+   yfinance prices → latest A model (and C, if its artifacts exist) → suggested weights. Cached for one hour. Banner:
    "Research demo — not investment advice." Delisted tickers are dropped with a note. A missing
    key or API error shows a message; the other tabs are unaffected.
 
@@ -163,7 +164,7 @@ pytest on synthetic data, no network or GPU:
 - Strategy C: outputs non-negative and summing to 1; gradients reach all parameters; it can overfit
   a tiny dataset.
 - Planted signal: a synthetic market where sentiment predicts next-week excess return. A has
-  mean IC > 0 and both A and C beat EW on Sharpe.
+  mean IC > 0 and A beats EW on Sharpe (and C beats EW too, once C is built).
 
 Error handling: Kaggle schema validation with counted drops; failed tickers logged and excluded;
 NLP scoring writes Parquet chunks and resumes; optimizer fallback (§7); fixed seeds; stdlib logging.
