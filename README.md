@@ -1,6 +1,6 @@
 # Sentiment-Driven Portfolio Optimization
 
-<!-- After pushing to GitHub, add: ![CI](https://github.com/<you>/<repo>/actions/workflows/ci.yml/badge.svg) -->
+[![CI](https://github.com/Suryanshu-77/sentiment-portfolio-optimization/actions/workflows/ci.yml/badge.svg)](https://github.com/Suryanshu-77/sentiment-portfolio-optimization/actions/workflows/ci.yml)
 
 News headlines are scored with transformer sentiment models (including one fine-tuned here),
 turned into weekly per-stock features, and fed to two kinds of portfolio construction:
