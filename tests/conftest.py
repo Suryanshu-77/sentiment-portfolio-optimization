@@ -63,3 +63,15 @@ def make_ctx(panel: pd.DataFrame, i: int = 100):
 @pytest.fixture
 def synthetic_ctx(synthetic_panel):
     return make_ctx(synthetic_panel)
+
+
+@pytest.fixture
+def synthetic_splits(synthetic_panel):
+    """Chronological 60/20/20 split of the planted-signal sequences (targets: y_excess)."""
+    from sdpo.features import make_sequences
+
+    X, y, _, _, _ = make_sequences(synthetic_panel)
+    ok = np.isfinite(y).all(axis=1)
+    X, y = X[ok], y[ok]
+    a, b = int(0.6 * len(X)), int(0.8 * len(X))
+    return X[:a], y[:a], X[a:b], y[a:b], X[b:], y[b:]
