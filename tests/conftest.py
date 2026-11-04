@@ -66,6 +66,42 @@ def synthetic_ctx(synthetic_panel):
 
 
 @pytest.fixture
+def fake_artifacts(tmp_path):
+    """A minimal artifacts/ directory in the formats scripts 03-06 write."""
+    import json
+
+    from sdpo.metrics import perf_metrics, sharpe_ci
+
+    art = tmp_path / "artifacts"
+    art.mkdir()
+    rng = np.random.default_rng(0)
+    weeks = pd.date_range("2016-01-01", "2017-12-29", freq="W-FRI")
+    names = ["EW", "MVO", "A-lstm@finetuned"]
+    rets = pd.DataFrame(rng.normal(0.002, 0.02, (len(weeks), 3)), weeks, names)
+    turn = pd.DataFrame(0.1, weeks, names)
+    rets.to_parquet(art / "returns.parquet")
+    turn.to_parquet(art / "turnover.parquet")
+    metrics = {n: {**perf_metrics(rets[n], turn[n]), "sharpe_ci": sharpe_ci(rets[n])}
+               for n in names}
+    (art / "metrics.json").write_text(json.dumps(metrics))
+    (art / "ic.json").write_text(json.dumps({"A-lstm@finetuned": {"mean_ic": 0.03,
+                                                                  "t_stat": 2.1}}))
+    conf = [[300, 30, 17], [60, 1400, 106], [10, 40, 425]]
+    (art / "nlp_eval.json").write_text(json.dumps(
+        {m: {"accuracy": 0.8, "macro_f1": 0.75, "confusion": conf}
+         for m in ("vader", "finbert", "finetuned")} | {"best": "finetuned"}))
+    idx = pd.MultiIndex.from_product([weeks, ["AAPL", "MSFT"]], names=["week", "ticker"])
+    pd.DataFrame({"sent_mean": rng.uniform(-1, 1, len(idx)), "sent_std": 0.1,
+                  "news_count": rng.integers(0, 9, len(idx)).astype(float),
+                  "price": 100 + rng.normal(0, 1, len(idx)).cumsum()},
+                 index=idx).to_parquet(art / "sentiment_weekly.parquet")
+    pd.DataFrame({"ticker": ["AAPL", "AAPL", "MSFT"], "headline": ["Up", "Down", "Flat"],
+                  "date": pd.to_datetime(["2016-02-01", "2016-03-01", "2016-04-01"]),
+                  "score": [0.9, -0.8, 0.0]}).to_parquet(art / "headlines.parquet")
+    return art
+
+
+@pytest.fixture
 def synthetic_splits(synthetic_panel):
     """Chronological 60/20/20 split of the planted-signal sequences (targets: y_excess)."""
     from sdpo.features import make_sequences
