@@ -76,7 +76,7 @@ summing to 1, each ≤ 0.10. `history` contains only data available at Friday cl
 ## 5. NLP and features
 
 - **Headline score** = P(positive) − P(negative), in [−1, 1]. VADER uses its compound score.
-- **Models compared:** VADER, `ProsusAI/finbert`, and fine-tuned `microsoft/deberta-v3-base`
+- **Models compared:** VADER, `ProsusAI/finbert`, and fine-tuned `roberta-base` (DeBERTa-v3-base was the first choice but does not train under transformers 5.x: it collapses to the majority class while RoBERTa learns on identical data)
   (bf16, max length 64, 3 epochs, trained on PhraseBank allagree + Twitter train).
   The best model on held-out macro-F1 is used for features. All three are scored and cached so
   the backtest can be repeated per model (ablation).

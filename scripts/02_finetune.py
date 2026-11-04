@@ -1,4 +1,4 @@
-"""Stage 2: fine-tune DeBERTa-v3-base on financial sentiment (GPU, roughly 15-30 min).
+"""Stage 2: fine-tune roberta-base on financial sentiment (GPU, a few minutes).
 
 Writes artifacts/models/finetuned/.
 """

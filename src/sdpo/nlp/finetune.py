@@ -47,7 +47,7 @@ def load_finetune_data():
                        test=tw["validation"].select_columns(cols))
 
 
-def finetune(out_dir: Path, base: str = "microsoft/deberta-v3-base") -> None:
+def finetune(out_dir: Path, base: str = "roberta-base") -> None:
     from transformers import (
         AutoModelForSequenceClassification,
         AutoTokenizer,
