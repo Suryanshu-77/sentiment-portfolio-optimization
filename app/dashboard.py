@@ -47,7 +47,8 @@ def backtest_tab() -> None:
         m = perf_metrics(r[name], turnover[name].reindex(r.index))
         rows.append({"Strategy": name, "CAGR": m["cagr"], "Vol": m["vol"], "Sharpe": m["sharpe"],
                      "Sortino": m["sortino"], "Max DD": m["max_dd"],
-                     "Turnover/wk": m["avg_turnover"], "Mean IC": ic.get(name, {}).get("mean_ic")})
+                     "Turnover/wk": m["avg_turnover"],
+                     "Mean IC": ic.get(name, {}).get("mean_ic", float("nan"))})
     table = pd.DataFrame(rows).set_index("Strategy").sort_values("Sharpe", ascending=False)
     st.dataframe(table.style.format({"CAGR": "{:.1%}", "Vol": "{:.1%}", "Sharpe": "{:.2f}",
                                      "Sortino": "{:.2f}", "Max DD": "{:.1%}",
@@ -60,11 +61,15 @@ def backtest_tab() -> None:
             for n in chosen if n in full))
 
     wealth = (1 + r).cumprod()
-    st.plotly_chart(px.line(wealth, labels={"value": "Growth of $1", "index": "Week"},
+    st.plotly_chart(px.line(wealth, labels={"value": "Growth of $1", "index": "Week",
+                                            "variable": "Strategy"},
                             title="Cumulative net returns"), use_container_width=True)
     drawdown = wealth / wealth.cummax() - 1
-    st.plotly_chart(px.area(drawdown, labels={"value": "Drawdown", "index": "Week"},
-                            title="Drawdown"), use_container_width=True)
+    # Lines, not px.area: area charts stack series, which would add drawdowns together.
+    st.plotly_chart(px.line(drawdown, labels={"value": "Drawdown", "index": "Week",
+                                              "variable": "Strategy"},
+                            title="Drawdown").update_yaxes(tickformat=".0%"),
+                    use_container_width=True)
 
 
 def sentiment_tab() -> None:
