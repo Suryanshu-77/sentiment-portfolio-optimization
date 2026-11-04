@@ -36,3 +36,30 @@ def synthetic_market(n_tickers: int = 30, n_weeks: int = 400, signal: float = 0.
 @pytest.fixture
 def synthetic():
     return synthetic_market()
+
+
+@pytest.fixture
+def synthetic_panel():
+    from sdpo.features import build_weekly_panel
+
+    return build_weekly_panel(*synthetic_market(signal=0.5))
+
+
+def make_ctx(panel: pd.DataFrame, i: int = 100):
+    """WeekContext at the i-th sequence week, assembled exactly as walk_forward does."""
+    from sdpo import config
+    from sdpo.backtest import WeekContext
+    from sdpo.features import make_sequences
+
+    X, _, _, weeks, tickers = make_sequences(panel)
+    t = weeks[i]
+    wide_ret = panel["fwd_ret"].unstack("ticker")[tickers]
+    wide_ex = panel["fwd_excess"].unstack("ticker")[tickers]
+    past = wide_ret.index < t
+    return WeekContext(t, tickers, panel.loc[t, config.FEATURES].reindex(tickers), X[i],
+                       wide_ret[past].tail(config.COV_WINDOW), wide_ex[past])
+
+
+@pytest.fixture
+def synthetic_ctx(synthetic_panel):
+    return make_ctx(synthetic_panel)
