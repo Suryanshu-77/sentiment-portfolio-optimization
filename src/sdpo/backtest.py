@@ -7,7 +7,7 @@ label leaks across a boundary.
 
 import logging
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Protocol
 
 import numpy as np
@@ -50,6 +50,31 @@ class BacktestResult:
     returns: pd.DataFrame  # week x strategy, net of costs
     weights: pd.DataFrame  # (week, strategy) x ticker
     turnover: pd.DataFrame  # week x strategy, L1
+    strategies: dict = field(default_factory=dict)  # (year, name) -> fitted strategy
+
+
+def _sequences(panel: pd.DataFrame, seq_len: int):
+    X, y_ex, y_ret, weeks, tickers = make_sequences(panel, seq_len)
+    next_week = pd.Series(weeks[1:].append(pd.DatetimeIndex([pd.NaT])), index=weeks)
+
+    def split(start: pd.Timestamp, end: pd.Timestamp) -> Split:
+        m = ((weeks >= start) & (weeks <= end) & (next_week <= end)).to_numpy()
+        w = weeks[m]
+        return Split(X[m], y_ex[m], y_ret[m], w, tickers,
+                     panel.loc[panel.index.get_level_values("week").isin(w)])
+
+    return X, y_ret, weeks, tickers, split
+
+
+def _year_splits(split, year: int) -> tuple[Split, Split]:
+    return (split(pd.Timestamp(config.TRAIN_START), pd.Timestamp(f"{year - 2}-12-31")),
+            split(pd.Timestamp(f"{year - 1}-01-01"), pd.Timestamp(f"{year - 1}-12-31")))
+
+
+def make_splits(panel: pd.DataFrame, year: int,
+                seq_len: int = config.SEQ_LEN) -> tuple[Split, Split]:
+    """(train, val) used for test year `year`; year=2021 gives the final live model's data."""
+    return _year_splits(_sequences(panel, seq_len)[-1], year)
 
 
 def _check(w: pd.Series, max_weight: float, name: str, week) -> None:
@@ -62,25 +87,17 @@ def _check(w: pd.Series, max_weight: float, name: str, week) -> None:
 def walk_forward(panel: pd.DataFrame, factories: dict[str, Callable[[], Strategy]],
                  test_years: Iterable[int], max_weight: float = config.MAX_WEIGHT,
                  seq_len: int = config.SEQ_LEN) -> BacktestResult:
-    X, y_ex, y_ret, weeks, tickers = make_sequences(panel, seq_len)
+    X, y_ret, weeks, tickers, split = _sequences(panel, seq_len)
     wide_ret = panel["fwd_ret"].unstack("ticker")[tickers]
     wide_ex = panel["fwd_excess"].unstack("ticker")[tickers]
-    next_week = pd.Series(weeks[1:].append(pd.DatetimeIndex([pd.NaT])), index=weeks)
 
-    def split(start: pd.Timestamp, end: pd.Timestamp) -> Split:
-        m = ((weeks >= start) & (weeks <= end) & (next_week <= end)).to_numpy()
-        w = weeks[m]
-        return Split(X[m], y_ex[m], y_ret[m], w, tickers,
-                     panel.loc[panel.index.get_level_values("week").isin(w)])
-
-    rets, wts, turns = {}, {}, {}
+    rets, wts, turns, fitted = {}, {}, {}, {}
     prev = {name: pd.Series(0.0, index=tickers) for name in factories}
     for year in test_years:
-        train = split(pd.Timestamp(config.TRAIN_START), pd.Timestamp(f"{year - 2}-12-31"))
-        val = split(pd.Timestamp(f"{year - 1}-01-01"), pd.Timestamp(f"{year - 1}-12-31"))
+        train, val = _year_splits(split, year)
         strategies = {}
         for name, make in factories.items():
-            strategies[name] = make()
+            strategies[name] = fitted[(year, name)] = make()
             strategies[name].fit(train, val)
         log.info("year %d: fitted %s (train %d weeks, val %d)", year, list(factories),
                  len(train.weeks), len(val.weeks))
@@ -108,4 +125,4 @@ def walk_forward(panel: pd.DataFrame, factories: dict[str, Callable[[], Strategy
 
     weights = pd.DataFrame(wts).T
     weights.index = weights.index.set_names(["week", "strategy"])
-    return BacktestResult(pd.DataFrame(rets), weights, pd.DataFrame(turns))
+    return BacktestResult(pd.DataFrame(rets), weights, pd.DataFrame(turns), fitted)

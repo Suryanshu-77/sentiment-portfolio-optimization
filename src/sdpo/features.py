@@ -37,21 +37,29 @@ def _zscore(wide: pd.DataFrame) -> pd.DataFrame:
     return z.where(np.broadcast_to(ok, z.shape), 0.0)
 
 
+def weekly_sentiment_raw(scores: pd.DataFrame, prices: pd.DataFrame) -> pd.DataFrame:
+    """Un-standardized weekly sentiment on the full (week, ticker) grid: sent_mean,
+    sent_std (ddof=0), news_count. Weeks without news are 0, never NaN."""
+    days = pd.DatetimeIndex(prices.index)
+    ends = week_ends(days)
+    tickers = sorted(prices.columns)
+    s = scores[scores["ticker"].isin(tickers)].copy()
+    s["week"] = _news_week(s["date"], days, ends)
+    agg = s.dropna(subset=["week"]).groupby(["week", "ticker"])["score"].agg(
+        sent_mean="mean", sent_std=lambda x: x.std(ddof=0), news_count="size")
+    grid = pd.MultiIndex.from_product([ends, tickers], names=["week", "ticker"])
+    return agg.reindex(grid).fillna(0.0).astype(float)
+
+
 def build_weekly_panel(scores: pd.DataFrame, prices: pd.DataFrame) -> pd.DataFrame:
     days = pd.DatetimeIndex(prices.index)
     ends = week_ends(days)
     tickers = sorted(prices.columns)
     prices = prices[tickers]
-
-    s = scores[scores["ticker"].isin(tickers)].copy()
-    s["week"] = _news_week(s["date"], days, ends)
-    agg = s.dropna(subset=["week"]).groupby(["week", "ticker"])["score"].agg(
-        sent_mean="mean", sent_std=lambda x: x.std(ddof=0), news_count="size")
+    sent = weekly_sentiment_raw(scores, prices)
 
     def wide(col: str) -> pd.DataFrame:
-        w = agg[col].unstack("ticker") if len(agg) else pd.DataFrame(index=ends,
-                                                                      columns=tickers)
-        return w.reindex(index=ends, columns=tickers).fillna(0.0).astype(float)
+        return sent[col].unstack("ticker").reindex(index=ends, columns=tickers)
 
     sent_mean = wide("sent_mean")
     pw = prices.loc[ends]

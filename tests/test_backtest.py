@@ -108,3 +108,14 @@ def test_invariant_violation_raises():
 
     with pytest.raises(AssertionError):
         walk_forward(_panel(), {"B": Bad}, test_years=[2016], max_weight=0.5, seq_len=1)
+
+
+def test_make_splits_matches_walk_forward_and_returns_fitted_strategies():
+    from sdpo.backtest import make_splits
+
+    Recorder.seen = {}
+    res = walk_forward(_panel(), {"R": Recorder}, test_years=[2016], max_weight=1.0,
+                       seq_len=1)
+    train, val = make_splits(_panel(), 2016, seq_len=1)
+    assert train.weeks.equals(Recorder.seen["train"]) and val.weeks.equals(Recorder.seen["val"])
+    assert isinstance(res.strategies[(2016, "R")], Recorder)

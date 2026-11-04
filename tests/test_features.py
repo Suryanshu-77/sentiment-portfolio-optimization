@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import pytest
 
 from sdpo import config
 from sdpo.features import build_weekly_panel, make_sequences, week_ends
@@ -80,3 +81,16 @@ def test_make_sequences_shapes(synthetic):
     # the last step of each sequence is that week's own features
     w = weeks[5]
     np.testing.assert_allclose(X[5, :, -1, :], panel.loc[w, config.FEATURES].to_numpy())
+
+
+def test_weekly_sentiment_raw_is_unstandardized():
+    from sdpo.features import weekly_sentiment_raw
+
+    prices = _flat_prices()
+    scores = pd.DataFrame({"ticker": ["A", "A", "B"],
+                           "date": pd.to_datetime(["2012-03-06", "2012-03-07", "2012-03-06"]),
+                           "score": [0.5, -0.1, 0.3]})
+    raw = weekly_sentiment_raw(scores, prices)
+    assert raw.loc[("2012-03-09", "A"), "news_count"] == 2
+    assert raw.loc[("2012-03-09", "A"), "sent_mean"] == pytest.approx(0.2)
+    assert raw.loc[("2012-03-09", "C"), "news_count"] == 0

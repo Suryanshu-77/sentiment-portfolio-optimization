@@ -42,3 +42,11 @@ def test_nan_targets_are_ignored(synthetic_splits):
     assert np.isfinite(predict(train_lstm(X_tr, y_tr, X_va, y_va, max_epochs=1,
                                           device="cpu"), X_te)).all()
     assert np.isfinite(predict(RidgeForecaster().fit(X_tr, y_tr), X_te)).all()
+
+
+def test_empty_validation_set_raises(synthetic_splits):
+    import pytest
+
+    X_tr, y_tr, X_va, y_va, _, _ = synthetic_splits
+    with pytest.raises(ValueError, match="validation"):
+        train_lstm(X_tr, y_tr, X_va[:0], y_va[:0], max_epochs=1, device="cpu")

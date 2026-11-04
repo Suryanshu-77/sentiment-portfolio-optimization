@@ -42,6 +42,9 @@ def train_lstm(X_tr, y_tr, X_va, y_va, seed: int = config.SEED, max_epochs: int 
     torch.manual_seed(seed)
     Xt, yt = _flatten(X_tr, y_tr)
     Xv, yv = _flatten(X_va, y_va)
+    if len(Xv) == 0 or len(Xt) == 0:
+        # Early stopping on an empty validation set would silently keep the untrained weights.
+        raise ValueError(f"empty training or validation set ({len(Xt)} / {len(Xv)} rows)")
     scale = float(yt.std()) or 1.0
     Xt, yt = torch.from_numpy(Xt).to(device), torch.from_numpy(yt / scale).to(device)
     Xv, yv = torch.from_numpy(Xv).to(device), torch.from_numpy(yv / scale).to(device)
