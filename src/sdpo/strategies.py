@@ -73,7 +73,7 @@ class StrategyA:
                  device: str | None = None):
         self.kind, self.device = forecaster, device
         self.model = None
-        self.val_sq_err: np.ndarray | None = None
+        self.val_sq_err: pd.Series | None = None  # by ticker: live may drop names
         self.preds: dict[pd.Timestamp, np.ndarray] = {}
 
     def fit(self, train: Split, val: Split) -> None:
@@ -83,7 +83,7 @@ class StrategyA:
         else:
             self.model = RidgeForecaster().fit(train.X, train.y_excess)
         err = (predict(self.model, val.X) - val.y_excess) ** 2
-        self.val_sq_err = np.nanmean(err, axis=0)
+        self.val_sq_err = pd.Series(np.nanmean(err, axis=0), index=val.tickers)
 
     def omega_diag(self, ctx: WeekContext) -> np.ndarray:
         """Mean squared forecast error per ticker over the last OMEGA_WINDOW weeks whose
@@ -92,7 +92,9 @@ class StrategyA:
         weeks = [w for w in sorted(self.preds) if w < ctx.week and w in realized.index]
         weeks = weeks[-config.OMEGA_WINDOW:]
         if len(weeks) < config.OMEGA_WINDOW:
-            err = self.val_sq_err
+            # Match by name: tickers unseen in validation get the median error.
+            v = self.val_sq_err
+            err = v.reindex(ctx.tickers).fillna(v.median()).to_numpy()
         else:
             pred = np.stack([self.preds[w] for w in weeks])
             err = np.nanmean((pred - realized.loc[weeks, ctx.tickers].to_numpy()) ** 2, axis=0)

@@ -88,3 +88,14 @@ def test_suggest_weights_with_no_news_at_all(tmp_model):
                           zip(NEWS_COLUMNS, ["str", "str", "datetime64[ns]"], strict=True)})
     w = suggest_weights(empty, prices, lambda texts: np.zeros(len(texts)), tmp_model)
     assert abs(w.sum() - 1) < 1e-6 and w.max() <= 0.10 + 1e-6
+
+
+def test_suggest_weights_when_a_ticker_is_dropped(tmp_model):
+    # the live tab drops tickers without recent prices (delisted, yfinance glitch); the model
+    # was trained on all 30, so its per-ticker validation errors must be matched by name
+    scores, prices = synthetic_market(signal=0.5)
+    recent = scores[scores["date"] > prices.index[-20]]
+    news = recent[recent["ticker"] != "T05"].assign(headline="x")[["ticker", "headline", "date"]]
+    w = suggest_weights(news, prices.drop(columns=["T05"]), lambda texts: np.zeros(len(texts)),
+                        tmp_model)
+    assert "T05" not in w.index and len(w) == 29 and abs(w.sum() - 1) < 1e-6
