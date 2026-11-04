@@ -95,11 +95,15 @@ def score_to_parquet(news: pd.DataFrame, scorer: Callable[[list[str]], np.ndarra
     parts = []
     for k, start in enumerate(range(0, len(news), chunk_size)):
         path = out_dir / f"chunk_{k:05d}.parquet"
-        if not path.exists():
-            chunk = news.iloc[start:start + chunk_size]
-            scored = chunk[["ticker", "date"]].assign(
+        chunk = news.iloc[start:start + chunk_size]
+        keys = chunk[["ticker", "date"]].reset_index(drop=True)
+        cached = pd.read_parquet(path) if path.exists() else None
+        # Reuse only a chunk scored from these exact rows; the news set may have changed
+        # (e.g. a re-run of stage 01 with a different universe).
+        if cached is None or not cached[["ticker", "date"]].reset_index(drop=True).equals(keys):
+            cached = keys.assign(
                 score=np.asarray(scorer(chunk["headline"].tolist()), dtype="float32"))
-            scored.to_parquet(path)
+            cached.to_parquet(path)
             log.info("scored chunk %d (%d rows)", k, len(chunk))
-        parts.append(pd.read_parquet(path))
+        parts.append(cached)
     return pd.concat(parts, ignore_index=True)

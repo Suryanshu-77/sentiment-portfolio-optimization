@@ -66,7 +66,7 @@ def test_zero_forecast_reproduces_the_prior(synthetic_panel):
     # A forecaster that predicts nothing must leave Black-Litterman at its prior (equal weight):
     # any tilt must come from the forecasts, not from how views are anchored.
     X, ye, yr, weeks, tickers = make_sequences(synthetic_panel)
-    zero = lambda s: Split(X[s], np.zeros_like(ye[s]), yr[s], weeks[s], tickers,  # noqa: E731
+    zero = lambda s: Split(X[s], np.zeros_like(ye[s]), yr[s], weeks[s], tickers,
                            synthetic_panel)
     a = StrategyA("ridge", device="cpu")
     a.fit(zero(slice(0, 200)), zero(slice(200, 252)))

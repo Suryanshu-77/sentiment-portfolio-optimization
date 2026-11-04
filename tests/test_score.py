@@ -47,3 +47,12 @@ def test_score_to_parquet_resumes(tmp_path):
 def test_vader_labels():
     assert VaderScorer().predict_labels(["great profits soar", "terrible losses crash"]).tolist() \
         == [2, 0]
+
+
+def test_score_to_parquet_rescores_stale_chunks(tmp_path):
+    # e.g. the universe changed and stage 01 was re-run: existing chunks no longer match
+    old = _news(4)
+    new = _news(4).assign(ticker="B")
+    score_to_parquet(old, lambda t: np.zeros(len(t)), tmp_path, chunk_size=2)
+    out = score_to_parquet(new, lambda t: np.ones(len(t)), tmp_path, chunk_size=2)
+    assert (out["ticker"] == "B").all() and (out["score"] == 1).all()

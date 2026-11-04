@@ -47,6 +47,10 @@ def main(processed: Path = config.PROCESSED_DIR, artifacts: Path = config.ARTIFA
     news_path = processed / "news.parquet"
     if news_path.exists():  # score_to_parquet preserves news order, so rows align
         news = pd.read_parquet(news_path)
+        keys = ["ticker", "date"]
+        if not news[keys].reset_index(drop=True).equals(scores[keys].reset_index(drop=True)):
+            raise SystemExit(f"scores_{best}.parquet does not match news.parquet row for row; "
+                             "re-run scripts/04_score.py after scripts/01_data.py")
         news.assign(score=scores["score"].to_numpy()).to_parquet(artifacts / "headlines.parquet")
     print(f"panels: {available}; dashboard sentiment from '{best}'")
 
