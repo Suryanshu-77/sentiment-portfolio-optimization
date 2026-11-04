@@ -61,45 +61,52 @@ it was trained on it.
 
 ### Backtest (out-of-sample 2016 to mid-2020)
 
-30 US large caps, 232 out-of-sample weeks (Jan 2016 to Jun 2020, including the COVID crash),
+30 US large caps, 234 out-of-sample weeks (Jan 2016 to Jun 2020, including the COVID crash),
 net of 10 bps costs. Produced by `scripts/06_backtest.py`.
 
 | Strategy | CAGR | Vol | Sharpe [95% CI] | Max DD | Turnover/wk |
 |---|---|---|---|---|---|
 | MVO | 12.4% | 18.6% | 0.73 [-0.14, 1.79] | -30.3% | 0.15 |
-| A-lstm@vader | 10.1% | 21.2% | 0.56 [-0.42, 1.72] | -38.6% | 0.51 |
-| A-lstm@finbert | 9.2% | 20.6% | 0.53 [-0.46, 1.73] | -39.1% | 0.43 |
 | EW | 10.6% | 24.9% | 0.53 [-0.45, 1.62] | -45.1% | 0.00 |
 | BL-no-views | 10.6% | 24.9% | 0.53 [-0.45, 1.62] | -45.1% | 0.00 |
-| A-lstm@finetuned | 9.1% | 20.6% | 0.53 [-0.46, 1.67] | -38.3% | 0.47 |
+| A-lstm@vader | 10.1% | 24.3% | 0.52 [-0.44, 1.60] | -43.7% | 0.55 |
 | B-tilt@finbert | 9.6% | 23.8% | 0.50 [-0.45, 1.58] | -43.0% | 0.47 |
+| A-lstm@finbert | 9.3% | 24.2% | 0.49 [-0.50, 1.59] | -44.5% | 0.47 |
 | B-tilt@finetuned | 9.0% | 23.8% | 0.48 [-0.48, 1.54] | -43.6% | 0.47 |
+| A-lstm@finetuned | 9.1% | 24.0% | 0.48 [-0.49, 1.55] | -42.8% | 0.52 |
 | B-tilt@vader | 9.1% | 24.6% | 0.48 [-0.46, 1.56] | -44.0% | 0.49 |
-| A-ridge@finetuned | 6.6% | 21.8% | 0.40 [-0.60, 1.45] | -41.8% | 1.10 |
-| A-ridge@vader | 4.1% | 22.9% | 0.29 [-0.68, 1.42] | -48.0% | 1.10 |
-| A-ridge@finbert | 3.2% | 21.8% | 0.25 [-0.73, 1.34] | -47.0% | 1.04 |
+| A-ridge@finetuned | 6.3% | 24.5% | 0.37 [-0.63, 1.39] | -45.8% | 1.13 |
+| A-ridge@vader | 3.4% | 25.7% | 0.26 [-0.70, 1.35] | -51.8% | 1.14 |
+| A-ridge@finbert | 3.1% | 24.8% | 0.25 [-0.75, 1.26] | -51.0% | 1.07 |
 
 Forecast quality (weekly rank IC of the LSTM's excess-return forecasts):
 VADER +0.019 (t = 1.5), FinBERT +0.011 (t = 0.8), fine-tuned +0.012 (t = 0.9).
 
+BL-no-views matches EW exactly by construction: the max-Sharpe portfolio of the equal-weight
+equilibrium prior is the equal-weight portfolio. It is kept as a check on the BL machinery.
+
 **What this shows**
 
 - **No statistically detectable sentiment alpha at a weekly horizon.** Forecast ICs are about 0.01
-  and insignificant; the raw sentiment features alone have ICs of 0.008 to 0.019. Every Sharpe
-  confidence interval overlaps every other and includes zero.
+  and insignificant. No sentiment strategy beats equal weight, and every Sharpe confidence
+  interval overlaps every other and includes zero.
 - **Better NLP did not mean better trading.** The fine-tuned model beats FinBERT by 0.20 macro-F1
   at classifying sentiment, yet its signal predicts returns no better. Classification accuracy and
   return predictability are different targets.
-- **Where the gains came from was portfolio construction, not sentiment.** Strategy A (LSTM) cuts
-  volatility (20.6% vs 24.9%) and max drawdown (-38% vs -45%) relative to equal weight at a similar
-  Sharpe. Covariance-aware optimization (MVO, Sharpe 0.73) did best, consistent with the strongest
-  raw feature being volatility (IC -0.035, the low-volatility effect).
-- **Costs matter.** The ridge forecaster trades about 110% of the book weekly and loses about
-  3 points of CAGR against the LSTM version, which trades about 45%.
+- **Risk-aware construction beat sentiment.** Only MVO (no sentiment at all) improved on equal
+  weight (Sharpe 0.73, max drawdown -30% vs -45%), consistent with the low-volatility effect.
+- **Costs matter.** The ridge forecaster trades about 113% of the book weekly against 52% for the
+  LSTM; the extra turnover alone costs about 3 points of return a year at 10 bps.
 
-These are the results of a pre-registered design (spec written before any real data was seen),
-not of tuning until something looked good. Natural next steps: a daily horizon, where news effects
-are documented to be stronger, a wider universe, and event-based (earnings) news.
+**A bug the final review caught.** An earlier version anchored the views at the *average* prior
+(`Q = mean(π) + forecast`). That quietly tilted every portfolio toward low-volatility stocks even
+when the forecast was zero, and made Strategy A look like it cut volatility and drawdown. With
+views anchored at each stock's own prior, a zero forecast reproduces equal weight (now tested), and
+Strategy A's apparent risk reduction disappears. The table above is from the corrected code.
+
+These are the results of a design written before any real data was seen, not of tuning until
+something looked good. Natural next steps: a daily horizon, where news effects are documented to
+be stronger, a wider universe, and event-based (earnings) news.
 
 ## Reproduce
 
