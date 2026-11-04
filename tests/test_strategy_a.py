@@ -60,3 +60,15 @@ def test_planted_signal_end_to_end_beats_ew(synthetic_panel):
     res = walk_forward(synthetic_panel, factories, test_years=[2016, 2017])
     s = {k: perf_metrics(res.returns[k])["sharpe"] for k in res.returns}
     assert s["A-lstm"] > s["EW"] and s["A-ridge"] > s["EW"], s
+
+
+def test_zero_forecast_reproduces_the_prior(synthetic_panel):
+    # A forecaster that predicts nothing must leave Black-Litterman at its prior (equal weight):
+    # any tilt must come from the forecasts, not from how views are anchored.
+    X, ye, yr, weeks, tickers = make_sequences(synthetic_panel)
+    zero = lambda s: Split(X[s], np.zeros_like(ye[s]), yr[s], weeks[s], tickers,  # noqa: E731
+                           synthetic_panel)
+    a = StrategyA("ridge", device="cpu")
+    a.fit(zero(slice(0, 200)), zero(slice(200, 252)))
+    w = a.weights(make_ctx(synthetic_panel, 260))
+    np.testing.assert_allclose(w.to_numpy(), 1 / 30, atol=1e-4)

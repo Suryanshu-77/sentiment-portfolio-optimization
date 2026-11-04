@@ -133,8 +133,9 @@ sentiment does predict returns, and the full pipeline must find it.
   The test was itself checked by injecting leaks, which it catches.
 - **Purged splits:** a training week's label is next week's return, so the last week of each split
   is dropped; no label crosses into validation or test.
-- **Views in relative terms:** the forecaster predicts cross-sectional excess return, so views are
-  `Q = mean(π) + forecast`. They move relative expectations, not the overall level.
+- **Views in relative terms:** the forecaster predicts cross-sectional excess return, so each
+  view is `Q_i = π_i + forecast_i`. A zero forecast reproduces the prior (equal weight)
+  exactly, a property the tests check, so any tilt comes from the forecasts.
 - **Universe:** the 30 tickers with the most headlines in 2010–2011 (before any test year) with
   complete price history.
 

@@ -107,9 +107,10 @@ class StrategyA:
         S = sigma.to_numpy()
         n = len(ctx.tickers)
         pi = implied_prior(S, np.full(n, 1 / n))
-        # The model forecasts *excess* (relative) return; anchor the views at the prior's
-        # average level so they move relative expectations, not the overall level.
-        Q = pi.mean() + forecast
+        # The model forecasts *excess* (relative) return, so each view is the stock's own prior
+        # plus that excess: a zero forecast reproduces the prior exactly (equal weight), and any
+        # tilt comes from the forecasts. (Anchoring at mean(pi) instead built in a low-vol tilt.)
+        Q = pi + forecast
         mu = bl_posterior(S, pi, np.eye(n), Q, np.diag(self.omega_diag(ctx)))
         return max_sharpe_weights(pd.Series(mu, index=ctx.tickers), sigma, config.MAX_WEIGHT)
 
