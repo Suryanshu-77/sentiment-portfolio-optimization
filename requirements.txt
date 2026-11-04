@@ -1,0 +1,4 @@
+# Install torch first from the right index, then: pip install -e .[dev]
+#   GPU: pip install torch --index-url https://download.pytorch.org/whl/cu126
+#   CPU: pip install torch --index-url https://download.pytorch.org/whl/cpu
+-e .[dev]
