@@ -10,9 +10,9 @@ from pathlib import Path
 import pandas as pd
 
 from sdpo import config
+from sdpo.features import build_weekly_panel, week_ends, weekly_sentiment_raw
 
 log = logging.getLogger(__name__)
-from sdpo.features import build_weekly_panel, week_ends, weekly_sentiment_raw
 
 MODELS = ("vader", "finbert", "finetuned")
 

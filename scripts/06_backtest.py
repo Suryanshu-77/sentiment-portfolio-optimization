@@ -16,11 +16,11 @@ import numpy as np
 import pandas as pd
 
 from sdpo import config
-
-log = logging.getLogger(__name__)
 from sdpo.backtest import make_splits, walk_forward
 from sdpo.metrics import perf_metrics, rank_ic, sharpe_ci
 from sdpo.strategies import BASELINES, SentimentTilt, StrategyA
+
+log = logging.getLogger(__name__)
 
 sys.path.insert(0, str(Path(__file__).parent))
 best_model = importlib.import_module("05_features").best_model
