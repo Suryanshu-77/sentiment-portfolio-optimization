@@ -38,10 +38,13 @@ def max_sharpe_weights(mu: pd.Series, sigma: pd.DataFrame,
     try:
         ef = EfficientFrontier(mu, sigma, weight_bounds=(0, max_w))
         ef.max_sharpe(risk_free_rate=0.0)
-        w = pd.Series(ef.clean_weights(), dtype=float).reindex(mu.index).fillna(0.0)
+        # rounding=None: clean_weights' default 5-dp rounding loses mass, and renormalizing
+        # afterwards pushed names sitting at the cap above it.
+        w = pd.Series(ef.clean_weights(rounding=None), dtype=float).reindex(mu.index)
+        w = w.fillna(0.0)
     except (ValueError, OptimizationError, SolverError) as e:  # all mean "no portfolio"
         log.warning("max_sharpe failed: %s", e)
         return None
     if not np.isfinite(w).all() or w.sum() <= 0:
         return None
-    return w / w.sum()
+    return cap_weights(w, max_w)  # renormalizes; solver tolerance can exceed the cap slightly

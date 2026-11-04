@@ -70,6 +70,18 @@ def test_max_sharpe_respects_bounds():
     assert w.max() <= 0.10 + 1e-6
 
 
+def test_max_sharpe_binding_cap_is_never_exceeded():
+    # several names pinned at the cap: rounding + renormalizing must not push them over
+    # diagonal covariance -> w proportional to mu: 9 names at the cap, 21 share 0.1 equally
+    # (0.0047619...), which 5-decimal rounding truncates
+    tickers, _ = _market()
+    sigma = pd.DataFrame(np.eye(30) * 1e-3, tickers, tickers)
+    mu = pd.Series([0.05] * 9 + [0.001] * 21, index=tickers)
+    w = max_sharpe_weights(mu, sigma)
+    assert (w > 0.0999).sum() == 9
+    assert w.max() <= 0.10 + 1e-9 and w.sum() == pytest.approx(1, abs=1e-9)
+
+
 def test_max_sharpe_all_negative_returns_none():
     tickers, rets = _market()
     assert max_sharpe_weights(pd.Series(-0.01, index=tickers), shrunk_cov(rets)) is None
