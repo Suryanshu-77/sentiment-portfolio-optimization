@@ -1,5 +1,6 @@
 """Streamlit dashboard. Tabs 1-3 read only precomputed artifacts (no GPU, no network)."""
 
+import datetime as dt
 import json
 import os
 from pathlib import Path
@@ -114,8 +115,74 @@ def nlp_tab() -> None:
         col.plotly_chart(fig, use_container_width=True)
 
 
+def finnhub_key() -> str | None:
+    key = os.environ.get("FINNHUB_API_KEY")
+    if key:
+        return key
+    try:
+        return st.secrets.get("FINNHUB_API_KEY")
+    except FileNotFoundError:  # no secrets.toml at all
+        return None
+
+
+@st.cache_resource
+def news_scorer():
+    from sdpo.nlp.score import HFScorer
+
+    local = ART / "models" / "finetuned"
+    return HFScorer(str(local) if local.exists() else "ProsusAI/finbert")
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def live_weights(tickers: tuple[str, ...], key: str, today: dt.date):
+    from sdpo.data.news import FinnhubError, fetch_finnhub_news
+    from sdpo.data.prices import download_prices
+    from sdpo.live import suggest_weights
+
+    prices = download_prices(list(tickers), (today - dt.timedelta(days=600)).isoformat(),
+                             (today + dt.timedelta(days=1)).isoformat())
+    complete = [t for t in tickers if t in prices.columns and prices[t].tail(260).notna().all()]
+    dropped = sorted(set(tickers) - set(complete))
+    frames, errors = [], []
+    for t in complete:
+        try:
+            frames.append(fetch_finnhub_news(t, today - dt.timedelta(days=28), today, key))
+        except FinnhubError as e:
+            errors.append(str(e))
+    # every request may fail (bad key, rate limit): fall back to an empty news frame
+    news = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame(
+        {"ticker": pd.Series(dtype=str), "headline": pd.Series(dtype=str),
+         "date": pd.Series(dtype="datetime64[ns]")})
+    w = suggest_weights(news, prices[complete].dropna(), news_scorer(),
+                        ART / "models" / "A-lstm.pt")
+    return w, dropped, errors, len(news)
+
+
 def live_tab() -> None:
-    st.info("Live suggested weights are added in the next build step.")
+    st.caption("Research demo — not investment advice.")
+    key = finnhub_key()
+    if not key:
+        st.warning("Set FINNHUB_API_KEY (environment variable or .streamlit/secrets.toml) to "
+                   "fetch live news. A free key is available at finnhub.io.")
+        return
+    if not (ART / "models" / "A-lstm.pt").exists():
+        st.info("No trained live model yet; run scripts/06_backtest.py.")
+        return
+    sent = load_parquet("sentiment_weekly.parquet")
+    tickers = tuple(sorted(sent.index.get_level_values("ticker").unique()))
+    if not st.button("Fetch last 4 weeks of news and compute weights"):
+        return
+    with st.spinner("Downloading prices and news, scoring headlines..."):
+        w, dropped, errors, n_news = live_weights(tickers, key, dt.date.today())
+    for err in errors:
+        st.error(f"Finnhub request failed for {err}")
+    if dropped:
+        st.caption(f"Dropped (no recent price data, e.g. delisted): {', '.join(dropped)}")
+    st.caption(f"{n_news} headlines scored. Strategy A weights for the coming week:")
+    w = w.sort_values(ascending=False)
+    st.plotly_chart(px.bar(w, labels={"value": "Weight", "index": "Ticker"})
+                    .update_layout(showlegend=False).update_yaxes(tickformat=".0%"),
+                    use_container_width=True)
 
 
 if not (ART / "metrics.json").exists():

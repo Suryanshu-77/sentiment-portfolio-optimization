@@ -71,6 +71,19 @@ def _year_splits(split, year: int) -> tuple[Split, Split]:
             split(pd.Timestamp(f"{year - 1}-01-01"), pd.Timestamp(f"{year - 1}-12-31")))
 
 
+def context_at(panel: pd.DataFrame, i: int = -1,
+               seq_len: int = config.SEQ_LEN) -> WeekContext:
+    """WeekContext for the i-th sequence week (default: the latest), built with the same
+    past-only rules walk_forward uses."""
+    X, _, _, weeks, tickers = make_sequences(panel, seq_len)
+    t = weeks[i]
+    wide_ret = panel["fwd_ret"].unstack("ticker")[tickers]
+    wide_ex = panel["fwd_excess"].unstack("ticker")[tickers]
+    past = wide_ret.index < t
+    return WeekContext(t, tickers, panel.loc[t, config.FEATURES].reindex(tickers), X[i],
+                       wide_ret[past].tail(config.COV_WINDOW), wide_ex[past])
+
+
 def make_splits(panel: pd.DataFrame, year: int,
                 seq_len: int = config.SEQ_LEN) -> tuple[Split, Split]:
     """(train, val) used for test year `year`; year=2021 gives the final live model's data."""

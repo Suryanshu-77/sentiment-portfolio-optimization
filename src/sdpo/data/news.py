@@ -1,9 +1,11 @@
 """News loading: the Kaggle historical archive (and, later, the live Finnhub client)."""
 
 import logging
+from datetime import date
 from pathlib import Path
 
 import pandas as pd
+import requests
 
 log = logging.getLogger(__name__)
 
@@ -53,3 +55,39 @@ def load_kaggle_news(paths: list[Path]) -> pd.DataFrame:
 
     df = df[["ticker", "headline", "date"]].astype({"ticker": str, "headline": str})
     return df.sort_values(["date", "ticker"], kind="stable").reset_index(drop=True)
+
+
+class FinnhubError(Exception):
+    """Finnhub request failed (HTTP error, rate limit, or malformed payload)."""
+
+
+FINNHUB_URL = "https://finnhub.io/api/v1/company-news"
+NEWS_COLUMNS = ["ticker", "headline", "date"]
+
+
+def fetch_finnhub_news(ticker: str, start: date, end: date, api_key: str,
+                       session: requests.Session | None = None) -> pd.DataFrame:
+    """Company news for one ticker as (ticker, headline, date[US/Eastern calendar day]).
+
+    The key goes in the X-Finnhub-Token header, never the URL, so it stays out of logs."""
+    http = session or requests
+    resp = http.get(FINNHUB_URL, params={"symbol": ticker, "from": start.isoformat(),
+                                         "to": end.isoformat()},
+                    headers={"X-Finnhub-Token": api_key}, timeout=10)
+    if resp.status_code != 200:
+        raise FinnhubError(f"{ticker}: HTTP {resp.status_code}")
+    try:
+        items = resp.json()
+    except ValueError as e:
+        raise FinnhubError(f"{ticker}: invalid JSON") from e
+    if not isinstance(items, list):
+        raise FinnhubError(f"{ticker}: unexpected payload {str(items)[:100]}")
+    rows = [(ticker, it.get("headline", ""), it.get("datetime")) for it in items
+            if it.get("headline") and it.get("datetime")]
+    if not rows:
+        return pd.DataFrame({c: pd.Series(dtype=t) for c, t in
+                             zip(NEWS_COLUMNS, ["str", "str", "datetime64[ns]"], strict=True)})
+    df = pd.DataFrame(rows, columns=NEWS_COLUMNS)
+    df["date"] = (pd.to_datetime(df["date"], unit="s", utc=True).dt.tz_convert(EASTERN)
+                  .dt.tz_localize(None).dt.normalize())
+    return df
